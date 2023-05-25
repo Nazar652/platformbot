@@ -23,6 +23,14 @@ class NewBot(StatesGroup):
 
 @router.message(Command(commands=["start"]))
 async def command_start(m: Message) -> None:
+    user = m.from_user
+    if not User.get_instance(user.id):
+        User.create_instance(
+                identifier=user.id,
+                firstname=user.first_name,
+                lastname=user.last_name,
+                username=user.username
+            )
     await m.answer(f'Привітальне повідомлення\nСтворити бота: /newbot')
 
 
@@ -34,11 +42,18 @@ async def command_new_bot(m: Message, state: FSMContext) -> None:
 
 @router.message(NewBot.writing_bot_token)
 async def new_bot_token(m: Message, state: FSMContext) -> None:
-    try:
-        bot_token = m.text
-        if bot_token == "check":
-            pass
-        bot_model = BotModel.create(bot_token=bot_token, is_executing=True)
+    bot_token = m.text
+    if BotModel.get_instance(bot_token=bot_token):
+        await m.answer("Бот з таким токеном вже є у базі даних")
+    else:
+        bot_model = BotModel.create_instance(
+            identifier=0,
+            name='',
+            username='',
+            bot_token=bot_token,
+            is_executing=True,
+            user=User.get_instance(m.from_user.id)
+        )
         thread = threading.Thread(target=start_bot, args=(bot_token, bot_model))
         thread.start()
         time.sleep(1)
@@ -46,8 +61,7 @@ async def new_bot_token(m: Message, state: FSMContext) -> None:
             await m.answer("Бот запущено")
         else:
             await m.answer("Невірний бот-токен")
-    except Exception as e:
-        print(e)
+            bot_model.delete_instance()
     await state.clear()
 
 
@@ -55,8 +69,10 @@ async def main() -> None:
     dp = Dispatcher()
     dp.include_router(router)
 
-    BotModel.delete()
+    db.drop_tables((User, BotModel, Channel))
+    User.create_table(safe=True)
     BotModel.create_table(safe=True)
+    Channel.create_table(safe=True)
     bot = Bot(BOT_TOKEN, parse_mode='HTML')
     await dp.start_polling(bot)
 
