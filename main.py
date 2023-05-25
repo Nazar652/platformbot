@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import time
 
 from aiogram import Bot, Dispatcher, Router, types
 from aiogram.filters import Command
@@ -11,6 +12,7 @@ from aiogram.types import Message
 from config import BOT_TOKEN
 from admin_bot import start_bot
 
+from database import *
 
 router = Router()
 
@@ -31,26 +33,29 @@ async def command_new_bot(m: Message, state: FSMContext) -> None:
 
 
 @router.message(NewBot.writing_bot_token)
-async def new_bot_token(m: Message) -> None:
-    bot_token = m.text
+async def new_bot_token(m: Message, state: FSMContext) -> None:
     try:
-        thread = threading.Thread(target=start_bot, args=(bot_token,))
+        bot_token = m.text
+        if bot_token == "check":
+            pass
+        bot_model = BotModel.create(bot_token=bot_token, is_executing=True)
+        thread = threading.Thread(target=start_bot, args=(bot_token, bot_model))
         thread.start()
-        await m.answer('все гуд')
-    except:
-        await m.answer('щось пішло не так')
-
-
-
-@router.message()
-async def echo_handler(m: Message) -> None:
-    await m.send_copy(chat_id=m.chat.id)
+        time.sleep(1)
+        if bot_model.is_executing:
+            await m.answer("Бот запущено")
+        else:
+            await m.answer("Невірний бот-токен")
+    except Exception as e:
+        print(e)
+    await state.clear()
 
 
 async def main() -> None:
     dp = Dispatcher()
     dp.include_router(router)
 
+    BotModel.create_table(safe=True)
     bot = Bot(BOT_TOKEN, parse_mode='HTML')
     await dp.start_polling(bot)
 
