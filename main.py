@@ -55,6 +55,7 @@ async def main() -> None:
     dp = Dispatcher()
     dp.include_router(router)
 
+    BotModel.delete()
     BotModel.create_table(safe=True)
     bot = Bot(BOT_TOKEN, parse_mode='HTML')
     await dp.start_polling(bot)
