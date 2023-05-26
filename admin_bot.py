@@ -1,11 +1,12 @@
 import asyncio
 import logging
+import time
 
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.filters import Command, BaseFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from database import *
 
@@ -13,6 +14,16 @@ from database import *
 class ChannelForwarded(BaseFilter):
     async def __call__(self, message: Message) -> bool:  # [3]
         return bool(message.forward_from_chat)
+
+
+def create_callback_markup(callback_queries: list[list[dict]]) -> InlineKeyboardMarkup:
+    callback_markup: list[list[InlineKeyboardButton]] = []
+    for row in callback_queries:
+        row_markup = []
+        for item in row:
+            row_markup.append(InlineKeyboardButton(**item))
+        callback_markup.append(row_markup)
+    return InlineKeyboardMarkup(inline_keyboard=callback_markup)
 
 
 async def main(bot_token, bot_model):
@@ -25,7 +36,7 @@ async def main(bot_token, bot_model):
 
     @router.message(Command(commands=["start"]))
     async def command_start(m: Message) -> None:
-        await m.answer(f'Бот адміністратор. Додати канал:\n/addchannel')
+        await m.answer(f'Бот адміністратор.\n\nДодати канал: /addchannel\nСписок каналів: /channels')
 
     @router.message(Command(commands=["addchannel"]))
     async def command_start(m: Message, state: FSMContext) -> None:
@@ -35,22 +46,46 @@ async def main(bot_token, bot_model):
     @router.message(NewChannel.adding_channel, ChannelForwarded())
     async def new_channel(m: Message, state: FSMContext) -> None:
         channel = m.forward_from_chat
-        print(channel)
         member = await bot.get_chat_member(chat_id=channel.id, user_id=bot_user.id)
-        if member.status == 'administrator':
-            await m.answer("Додано канал")
-            channel_entity = Channel.get_instance(channel.id)
-            if channel_entity:
-                await m.answer("Цей канал вже є в базі даних")
-            else:
-                Channel.create_instance(
-                    identifier=channel.id,
-                    title=channel.title,
-                    bot=BotModel.get_instance(bot_user.id)
-                )
+        if Channel.get_instance(channel.id):
+            await m.answer("Цей канал вже підключено до бота адміністратора")
         else:
-            await m.answer("Бот не є адміністратором у цьому каналі")
+            if member.status == 'administrator':
+                await m.answer("Додано канал")
+                channel_entity = Channel.get_instance(channel.id)
+                if channel_entity:
+                    await m.answer("Цей канал вже є в базі даних")
+                else:
+                    Channel.create_instance(
+                        identifier=channel.id,
+                        title=channel.title,
+                        bot=BotModel.get_instance(identifier=bot_user.id)
+                    )
+            else:
+                await m.answer("Бот не є адміністратором у цьому каналі")
         await state.clear()
+
+    @router.message(Command(commands=['channels']))
+    async def channels_list(m: Message) -> None:
+        # bot_instance = BotModel.get_instance(BotModel.identifier == bot.id)
+        # query = Channel.select().where(Channel.bot == bot_instance.id)
+        # channels = query.execute()
+
+        channels = Channel.get_join_instance(BotModel, BotModel.identifier == bot.id)
+        print(channels)
+        if channels:
+            channels_to_markup = []
+            for c in channels:
+                channels_to_markup.append(
+                    [{
+                        'text': c.title,
+                        'callback_data': f'channel/{c.identifier}'
+                    }]
+                )
+            callback_markup = create_callback_markup(channels_to_markup)
+            await m.answer('Список каналів підключених до цього бота:', reply_markup=callback_markup)
+        else:
+            await m.answer('На даний момент до бота не підключено жоден канал')
 
     try:
         bot = Bot(bot_token, parse_mode='HTML')

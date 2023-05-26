@@ -21,6 +21,27 @@ class NewBot(StatesGroup):
     writing_bot_token = State()
 
 
+def send_messages():
+    print(123)
+
+
+def start_send_messages():
+    while True:
+        send_messages()
+        time.sleep(60)
+
+
+async def start_admin_bot(bot_token, bot_model) -> bool:
+    thread = threading.Thread(target=start_bot, args=(bot_token, bot_model))
+    thread.start()
+    time.sleep(1)
+    if bot_model.is_executing:
+        return True
+    else:
+        bot_model.delete_instance()
+        return False
+
+
 @router.message(Command(commands=["start"]))
 async def command_start(m: Message) -> None:
     user = m.from_user
@@ -54,14 +75,10 @@ async def new_bot_token(m: Message, state: FSMContext) -> None:
             is_executing=True,
             user=User.get_instance(m.from_user.id)
         )
-        thread = threading.Thread(target=start_bot, args=(bot_token, bot_model))
-        thread.start()
-        time.sleep(1)
-        if bot_model.is_executing:
+        if await start_admin_bot(bot_token, bot_model):
             await m.answer("Бот запущено")
         else:
             await m.answer("Невірний бот-токен")
-            bot_model.delete_instance()
     await state.clear()
 
 
@@ -73,6 +90,13 @@ async def main() -> None:
     User.create_table(safe=True)
     BotModel.create_table(safe=True)
     Channel.create_table(safe=True)
+
+    for b in BotModel.get_all():
+        await start_admin_bot(b.bot_token, b)
+
+    thread = threading.Thread(target=start_send_messages)
+    thread.start()
+
     bot = Bot(BOT_TOKEN, parse_mode='HTML')
     await dp.start_polling(bot)
 
