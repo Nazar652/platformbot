@@ -68,11 +68,31 @@ class ChannelSubscriber(BaseModel):
 
 
 class Post(BaseModel):
-    text = CharField()
+    text = TextField()
     is_published = BooleanField()
     publish_date = DateTimeField()
+    delete_date = DateTimeField(null=True)
     buttons = TextField()
     channel = ForeignKeyField(
         Channel,
-        backref='channelsubscribers'
+        backref='posts'
+    )
+
+
+class CyclicPost(BaseModel):
+    text = TextField()
+    start_date = DateTimeField()
+    cyclic_time = DateTimeField()
+    buttons = TextField()
+    channel = ForeignKeyField(
+        Channel,
+        backref='cyclicposts'
+    )
+
+
+class AutoSignature(BaseModel):
+    text = CharField()
+    post = ForeignKeyField(
+        Post,
+        backref='autosignatures'
     )

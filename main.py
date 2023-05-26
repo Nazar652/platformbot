@@ -10,7 +10,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message
 
 from config import BOT_TOKEN
-from admin_bot import start_bot
+from admin_bot.admin_main import start_bot
 
 from database import *
 
@@ -86,11 +86,15 @@ async def main() -> None:
     dp = Dispatcher()
     dp.include_router(router)
 
-    db.drop_tables((User, BotModel, Channel))
+    # db.drop_tables((User, BotModel, Channel))
     User.create_table(safe=True)
     BotModel.create_table(safe=True)
     Channel.create_table(safe=True)
-
+    ChannelSubscriber.create_table(safe=True)
+    Post.create_table(safe=True)
+    CyclicPost.create_table(safe=True)
+    AutoSignature.create_table(safe=True)
+    ChannelSubscriber.create_table(safe=True)
     for b in BotModel.get_all():
         await start_admin_bot(b.bot_token, b)
 
