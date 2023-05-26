@@ -1,16 +1,19 @@
 import asyncio
+import logging
+import threading
 
+from flask import Flask, request, jsonify
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
+from aiogram.filters import Command, Text
 import csv
 import datetime
 
 from peewee_database import *
 
-
-bot_token = "5773290502:AAG_0g8_vTUuf64hK8NUq_4OfSWeXaNdpnM"
+bot_token = "6083919093:AAFrGH05-QUcnBr_T78fKNWpr5EPlhaCyc0"
 bot = Bot(token=bot_token)
 dp = Dispatcher()
+app = Flask(__name__)
 
 
 @dp.message(Command("start"))
@@ -20,21 +23,27 @@ async def start_bot(message: types.Message):
     await message.answer("intro text", reply_markup=keyboard)
 
 
-@dp.message(Command("get_csv"))
+@app.route('/api/get/userdata', methods=['GET'])
+def write_json():
+    with app.app_context():
+        response_data = []
+        for user in get_users:
+            response_data.append({
+                'id': user.identifier,
+                'firstname': user.firstname,
+                'lastname': user.lastname,
+                'username': user.username
+            })
+
+        return jsonify(response_data)
+
+
+@dp.message(Text("get csv"))
 async def get_csv(message: types.Message):
     # TODO: connect to another bot
-    chat_id = 1
-
+    chat_id = -1001779692541
     get_users = User.select().where(User.chat_id == chat_id)
-    headers = ["id", "firstname", "lastname", "username"]
-    file_name = f"{datetime.datetime.now().strftime('%Y-%m-%d')}_users.csv"
-    with open(file_name, 'a',  encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(headers)
-        writer.writerow([user.id, user.firstname, user.lastname, user.username] for user in get_users)
-
-    with open(file_name, 'rb') as f:
-        await bot.send_document(message.chat.id,  f)
+    write_json(get_users)
 
 
 async def main():
@@ -43,4 +52,8 @@ async def main():
 
 
 if __name__ == "__main__":
+    flask_thread = threading.Thread(target=app.run)
+    flask_thread.start()
+
+    logging.basicConfig(level=logging.INFO)
     asyncio.run(main())

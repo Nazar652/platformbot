@@ -42,6 +42,10 @@ class Channel(BaseModel):
     bot = ForeignKeyField(BotModel)
 
 
-class ScheduleMessage(Model):
+class ScheduleMessage(BaseModel):
     text = CharField()
     send_date = DateTimeField()
+
+
+db.connect()
+db.create_tables([User, BotModel, Channel, ScheduleMessage])
