@@ -18,7 +18,7 @@ app = Flask(__name__)
 
 @dp.message(Command("start"))
 async def start_bot(message: types.Message):
-    kb = [[types.KeyboardButton(text="get csv")]]
+    kb = [[types.KeyboardButton(text="report data")]]
     keyboard = types.ReplyKeyboardMarkup(keyboard=kb)
     await message.answer("intro text", reply_markup=keyboard)
 
@@ -26,24 +26,23 @@ async def start_bot(message: types.Message):
 @app.route('/api/get/userdata', methods=['GET'])
 def write_json():
     with app.app_context():
+        data = db.get_all()  # TODO
         response_data = []
-        for user in get_users:
+        for user in data:
             response_data.append({
                 'id': user.identifier,
                 'firstname': user.firstname,
                 'lastname': user.lastname,
-                'username': user.username
+                'username': user.username,
+                'channel_id': user.channel_id
             })
 
         return jsonify(response_data)
 
 
-@dp.message(Text("get csv"))
+@dp.message(Text("report data"))
 async def get_csv(message: types.Message):
-    # TODO: connect to another bot
-    chat_id = -1001779692541
-    get_users = User.select().where(User.chat_id == chat_id)
-    write_json(get_users)
+    write_json()
 
 
 async def main():
