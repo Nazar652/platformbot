@@ -12,7 +12,7 @@ import random
 import os
 
 
-bot_token = ''
+bot_token = '5773290502:AAFfOSXk2ltL_tM4QQsC9n8y424ocxps51o'
 bot = aiogram.Bot(token=bot_token, parse_mode="HTML")
 dp = aiogram.Dispatcher()
 
@@ -24,22 +24,6 @@ telegraph = Telegraph(access_token)
 @dp.message(Command('start'))
 async def start(message: aiogram.types.Message):
     await message.reply("send img")
-
-
-async def download_file(save_path: str, file_url: str):
-    try:
-        response = requests.get(file_url)
-        response.raise_for_status()
-        with open(save_path, 'wb') as file:
-            file.write(response.content)
-    except requests.exceptions.HTTPError as e:
-        print(f"HTTP Error occurred: {e}")
-    except requests.exceptions.ConnectionError as e:
-        print(f"Error connecting to the server: {e}")
-    except requests.exceptions.Timeout as e:
-        print(f"Timeout error: {e}")
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
 
 
 async def upload_file(image_path: str) -> str:
@@ -59,11 +43,7 @@ async def process_photo(message: aiogram.types.Message):
     random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
     image_path = f"img/{random_string}.jpg"
 
-    file_id = message.photo[-1].file_id
-    file_info = await bot.get_file(file_id)
-    file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_info.file_path}"
-
-    await download_file(image_path, file_url)
+    await bot.download(message.photo[-1],  image_path)
 
     hidden_link = await upload_file(image_path)
     await delete_file(image_path)
