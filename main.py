@@ -86,15 +86,35 @@ async def main() -> None:
     dp = Dispatcher()
     dp.include_router(router)
 
-    # db.drop_tables((User, BotModel, Channel))
-    User.create_table(safe=True)
-    BotModel.create_table(safe=True)
-    Channel.create_table(safe=True)
-    ChannelSubscriber.create_table(safe=True)
-    Post.create_table(safe=True)
-    CyclicPost.create_table(safe=True)
-    AutoSignature.create_table(safe=True)
-    ChannelSubscriber.create_table(safe=True)
+    # db.drop_tables(
+    #     [User,
+    #      BotModel,
+    #      Channel,
+    #      ChannelSubscriber,
+    #      Post,
+    #      CyclicPost,
+    #      AutoSignature]
+    # )
+    subscriber_channel = Channel.subscribers.get_through_model()
+    db.create_tables(
+        [User,
+         BotModel,
+         Channel,
+         ChannelSubscriber,
+         Post,
+         CyclicPost,
+         AutoSignature,
+         subscriber_channel],
+        safe=True
+    )
+
+    # User.create_table(safe=True)
+    # BotModel.create_table(safe=True)
+    # Channel.create_table(safe=True)
+    # ChannelSubscriber.create_table(safe=True)
+    # Post.create_table(safe=True)
+    # CyclicPost.create_table(safe=True)
+    # AutoSignature.create_table(safe=True)
     for b in BotModel.get_all():
         await start_admin_bot(b.bot_token, b)
 

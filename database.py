@@ -47,6 +47,13 @@ class BotModel(BaseModel):
     )
 
 
+class ChannelSubscriber(BaseModel):
+    identifier = IntegerField()
+    firstname = CharField()
+    lastname = CharField(null=True)
+    username = CharField(null=True)
+
+
 class Channel(BaseModel):
     identifier = IntegerField()
     title = CharField()
@@ -54,25 +61,16 @@ class Channel(BaseModel):
         BotModel,
         backref='channels'
     )
-
-
-class ChannelSubscriber(BaseModel):
-    identifier = IntegerField()
-    firstname = CharField()
-    lastname = CharField(null=True)
-    username = CharField(null=True)
-    channel = ForeignKeyField(
-        Channel,
-        backref='channelsubscribers'
-    )
+    subscribers = ManyToManyField(ChannelSubscriber)
 
 
 class Post(BaseModel):
-    text = TextField()
-    is_published = BooleanField()
-    publish_date = DateTimeField()
+    message_id = IntegerField(null=True)
+    copy_message_id = IntegerField()
+    copy_chat_id = IntegerField()
+    is_published = BooleanField(default=False)
+    publish_date = DateTimeField(null=True)
     delete_date = DateTimeField(null=True)
-    buttons = TextField()
     channel = ForeignKeyField(
         Channel,
         backref='posts'
