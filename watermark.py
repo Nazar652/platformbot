@@ -3,7 +3,11 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import aiogram
 import asyncio
-from aiogram.types import BufferedInputFile
+
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.types import BufferedInputFile, Message
 import io
 
 
@@ -12,12 +16,12 @@ bot = aiogram.Bot(token=bot_token, parse_mode="HTML")
 dp = aiogram.Dispatcher()
 
 
-async def add_text_watermark(image_title, original_image, watermark_text):
+async def add_text_watermark(image_id, original_image, watermark_text):
 
     font = ImageFont.truetype('Roboto-Black.ttf', 15)
     image = Image.open(original_image)
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    watermarked_file = f'img/watermarked_{image_title}.png'
+    watermarked_file = f'img/watermarked_{image_id}.png'
     draw = ImageDraw.Draw(overlay)
 
     text_width, text_height = draw.textsize(watermark_text, font)
@@ -33,12 +37,12 @@ async def add_text_watermark(image_title, original_image, watermark_text):
     return watermarked_file
 
 
-async def add_img_watermark(random_string, original_img, watermark_img):
-    transparency = 40
-    watermarked_file = f'img/watermarked_{random_string}.png'
+async def add_img_watermark(original_image_id, original_image, watermark_image):
+    transparency = 65
+    watermarked_file = f'img/watermarked_{original_image_id}.png'
 
-    base_img = Image.open(original_img)
-    watermark = Image.open(watermark_img)
+    base_img = Image.open(original_image)
+    watermark = Image.open(watermark_image)
 
     if watermark.mode != 'RGBA':
         alpha = Image.new('L', watermark.size, 255)
@@ -57,24 +61,61 @@ async def add_img_watermark(random_string, original_img, watermark_img):
     return watermarked_file
 
 
-@dp.message()
-async def process_photo(message: aiogram.types.Message):
+class AddWatermark(StatesGroup):
+    upload_image = State()
+    watermark = State()
+    confirm = State()
 
-    image_title = message.photo[-1].file_unique_id  # PLACEHOLDER already had image before run this part of script
-    original_image_path = f"img/{image_title}.png"  # PLACEHOLDER already had image before run this part of script
-    await bot.download(message.photo[-1],
-                       original_image_path)  # PLACEHOLDER already had image before run this part of script
 
-    watermarked_file = await add_img_watermark(image_title, original_image_path, watermark_img='2.png')
-    # watermarked_file = await add_text_watermark(image_title, original_image_path, watermark_text='watermark')
+@dp.message(Command(commands=['upload_image']))
+async def start_upload_image(m: Message,  state: FSMContext):
+    await m.answer('send a image')
+    await state.set_state(AddWatermark.upload_image)
+
+
+@dp.message(AddWatermark.upload_image)
+async def upload_image(m: Message, state: FSMContext):
+    await state.update_data(original_image=m)
+    await m.answer('send a watermark image or your watermark text')
+    await state.set_state(AddWatermark.watermark)
+
+
+# @dp.message(Command(commands=['watermark']))
+# async def start_watermark(m: Message,  state: FSMContext):
+#     await m.answer('send a watermark image or your watermark text')
+#     await state.set_state(AddWatermark.watermark)
+
+
+@dp.message(AddWatermark.watermark)
+async def adding_watermark(m: Message, state: FSMContext):
+    await state.update_data(watermark_data=m)
+
+    original_image = await state.get_data()
+    original_image = original_image["original_image"]
+    image_data = original_image.photo[-1]
+    original_image_path = f"img/{image_data.file_unique_id}.png"
+    await bot.download(image_data, original_image_path)
+
+    if m.text:
+        watermark_text = m.text
+        watermarked_file = await add_text_watermark(image_data.file_unique_id, original_image_path, watermark_text)
+        os.remove(original_image_path)
+    elif m.photo:
+        watermark_image = m.photo[-1]
+        watermark_image_path = f"img/{watermark_image.file_unique_id}.png"
+        await bot.download(watermark_image, watermark_image_path)
+        watermarked_file = await add_img_watermark(image_data.file_unique_id, original_image_path, watermark_image_path)
+        os.remove(watermark_image_path)
+    else:
+        await m.answer('send a watermark image or your watermark text')
+        return
 
     with open(watermarked_file, 'rb') as image_data:
         set_to_bytes = io.BytesIO(image_data.read())
         photo = BufferedInputFile(set_to_bytes.read(), filename=watermarked_file)
-        await message.answer_photo(photo)
+        await m.answer_photo(photo)
 
     os.remove(watermarked_file)
-    os.remove(original_image_path)
 
 
 async def main():
